@@ -286,19 +286,83 @@ class VizScene:
             return None
         self.app.processEvents()
 
-    def add_obstacle(self, pos, color=yellow, rad = 1.0):
+    def add_obstacle(self, pos, color=yellow, rad = 1.0, square=False):
         if not isinstance(pos, (np.ndarray)):
             pos = np.array(pos)
 
         mobst = gl.MeshData.sphere(rows=20, cols=20, radius=rad)
 
-        m1 = gl.GLMeshItem(
-            meshdata=mobst,
-            smooth=True,
-            color=yellow,
-            shader="shaded",
-            glOptions="additive",
-        )
+        if square:
+            width = rad
+            height = rad
+
+            points = np.array([[0, width, 0], #A
+                    [width, width, 0], #B 
+                    [width, 0, 0], #C
+                    [0, 0, 0], #D
+                    [0, width, height], #E
+                    [width, width, height], #F
+                    [width, 0, height], #G
+                    [0, 0, height] # H
+                    ])
+                    
+            mesh = np.array([
+                    [points[3], points[2], points[1]], #top1 DCB
+                    [points[1], points[0], points[1]], #top2 DAB
+                    [points[7], points[6], points[5]], #bottom1 HGF
+                    [points[7], points[4], points[5]], #bottom2 HEF
+                    [points[7], points[3], points[0]], #front1 HDA
+                    [points[7], points[4], points[0]], #front2 HEA
+                    [points[6], points[2], points[5]], #back1 GCF
+                    [points[2], points[1], points[5]], #back2 CBF
+                    [points[4], points[5], points[0]], #right1 EFA
+                    [points[5], points[1], points[0]], #right2 FBA
+                    [points[7], points[3], points[2]], #left1 HDC
+                    [points[3], points[2], points[6]], #left2 DCG
+                    ]) 
+
+            meshColors = np.empty((12, 3, 4), dtype=np.float32)
+
+            # red = np.array([1., 0., 0., 1])
+            # black = np.array([0., 0., 0., 1.])
+            # cyan = np.array([0., 1., 1., 1])
+            # violet = np.array([1., 0., 1., 1])
+            # white = np.array([1., 1., 1., 1])
+
+            # green = np.array([0., 1., 0., 1])
+            # blue = np.array([0., 0., 1., 1])
+            # yellow = np.array([1., 1., 0., 1])
+
+            clr = yellow
+
+            meshColors[0] = clr
+            meshColors[1] = clr
+            meshColors[2] = clr
+            meshColors[3] = clr
+            meshColors[4] = clr
+            meshColors[5] = clr
+            meshColors[6] = clr
+            meshColors[7] = clr
+            meshColors[8] = clr
+            meshColors[9] = clr
+            meshColors[10] = clr
+            meshColors[11] = clr
+
+            m1= gl.GLMeshItem(vertexes=mesh,  # defines the triangular mesh (Nx3x3)
+                            vertexColors=meshColors,  # defines mesh colors (Nx1)
+                            drawEdges=True,  # draw edges between mesh elements
+                            smooth=False,  # speeds up rendering
+                            computeNormals=False)  # speeds up rendering
+        else:
+            m1 = gl.GLMeshItem(
+                meshdata=mobst,
+                smooth=True,
+                color=yellow,
+                shader="shaded",
+                glOptions="additive",
+            )
+
+
         m1.translate(*pos)
 
         self.obstacles.append(m1)

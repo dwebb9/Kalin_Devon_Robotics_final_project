@@ -78,7 +78,7 @@ if __name__ == "__main__":
       viz = VizScene()
       viz.add_arm(arm, joint_colors=[np.array([0.95, 0.13, 0.13, 1])]*arm.n)
       viz.add_marker(goal, size=20)
-      viz.add_obstacle(obst_position, rad=obst_rad)
+      viz.add_obstacle(obst_position, rad=obst_rad, square=True)
       for q in q_ik_slns:
             viz.update(qs=[q])
 
