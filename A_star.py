@@ -43,8 +43,8 @@ if __name__ == "__main__":
       # if your function works, this code should show the goal, the obstacle, and your robot moving towards the goal.
       q_0 = [0, 0, 0, 0]
       goal = [0, 2, 4]
-      obst_position = [0, 3, 2]
-      obst_rad = 1.0
+      obst_position = [0, 1, 0]
+      obst_rad = 2.5
 
       # if you just want to check if you have your code set up correctly, you can uncomment the next three lines and run this file
       # using either vs code or the terminal (and running "python3 midterm_2022.py"). None of the next three lines are needed
@@ -74,13 +74,15 @@ if __name__ == "__main__":
 
       viz.add_arm(arm, joint_colors=[np.array([0.95, 0.13, 0.13, 1])]*arm.n)
       viz.add_marker(goal, size=20)
-      viz.add_obstacle(obst_position, rad=obst_rad)
+      viz.add_obstacle(obst_position, rad=obst_rad, square=True)
+
+      viz.update(qs=[0, np.pi/2, np.pi/2])
 
       # viz.hold()
-      for q in q_ik_slns:
-            viz.update(qs=[q])
+      # for q in q_ik_slns:
+      #       viz.update(qs=[q])
 
-            # if your step in q is very small, you can shrink this time, or remove it completely to speed up your animation
-            time.sleep(0.1)
-            time.sleep(0.05)
+      #       # if your step in q is very small, you can shrink this time, or remove it completely to speed up your animation
+      #       time.sleep(0.1)
+      #       time.sleep(0.05)
       viz.hold()
