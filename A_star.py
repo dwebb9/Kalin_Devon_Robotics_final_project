@@ -5,11 +5,51 @@ from queue import PriorityQueue
 #TODO: 
 # Find path with square obs
 # define and measure metrics for comparing path planners. 
+
+block_size = 0.5
+ik_type = "p_inv"
+K = 0.4*np.eye(3,3)
+
 # create test evn to verify A_star with
 
-def find_walkable(current, grid_size, obs_points):
-      pnts = []
-      return pnts
+def find_walkable(current, currentq, grid_size, obs_points, arm):
+      walk = []
+
+      xmin = -grid_size[0]/2
+      xmax = grid_size[0]/2
+      ymin = -grid_size[1]/2
+      ymax = grid_size[1]/2
+
+      if current[0] < xmax - 1:
+            walk.append([current[0] + 1, current[1], 0])
+      if current[0] > xmin:
+            walk.append([current[0] - 1, current[1], 0])
+      if current[1] < ymax:
+            walk.append([current[0], current[1] + 1, 0])
+      if current[1] > ymin:
+            walk.append([current[0], current[1] - 1, 0])
+
+      for i in walk:
+            if i in obs_points:
+                  walk.remove(i)
+            else:
+                  (q, ef, count, flag, message) = arm.ik_position([i[0]*block_size, i[1]*block_size, i[2]*block_size], currentq, ik_type, K=K)
+                  col = check_collision(q, obs_points, arm)
+                  if col:
+                        walk.remove(i)
+      return walk
+
+def get_obs_poinst(obs_list):
+      # TODO: may need to adjust to deal with obs in the negative quadrants. 
+      obs_pnts = []
+
+      for o in obs_list:
+            corner = o[0]
+            size = o[1]
+            for x in range(0, int(size/block_size)):
+                  for y in range(0, int(size/block_size)):
+                        obs_pnts.append([corner[0]/block_size + x, corner[1]/block_size + y, 0])
+      return obs_pnts
 
 class Node():
       def __init__(self, loc, q, g, h):
@@ -29,18 +69,19 @@ class Node():
       def __eq__(self, other):
             return (self.loc[0], self.loc[1], self.loc[2]) == (other.loc[0], other.loc[1], other.loc[2])
 
-def check_collision(q, obs_loc, obs_rad, arm):
+def check_collision(q, obs_points, arm):
       joint_locs = []
-      for i in range(3, arm.n+1):
+      # NOTE: CHANGE 0 TO 3 FOR 3D
+      for i in range(0, arm.n+1):
             T = arm.fk(q,i)
             joint_locs.append(T[0:3,3])
 
-      center = np.array(obs_loc)
+      # print("joints locs \n", joint_locs)
+      # print("obs points: \n", obs_points)
       for j in joint_locs:
-            # print("test location: ", j)
-            # print("dist: ", np.linalg.norm(j - center))
-            if np.linalg.norm(j - center) <= obs_rad:
-                  # print("broke on : ", j)
+            j_grid = [j[0]/block_size, j[1]/block_size, j[2]/block_size]
+            # print(j_grid)
+            if j_grid in obs_points:
                   return True
       return False
 
@@ -86,23 +127,58 @@ def check_collision(q, obs_loc, obs_rad, arm):
 #       final_path.append(current.loc)
 #       current = current.prev
 
+
 def get_astar_path(q0, obs_list, grid_size, goal, arm):
       #inputs: q0, obs_list(list of obstacles), grid_size, goal
+      #ouput: q_list(list of iterative q values)
 
+      obs_pnts = get_obs_poinst(obs_list)
       start_end_pos = arm.fk(q0, arm.n)[0:3,3]
+      goal_grid_cell = [goal[0]/block_size, goal[1]/block_size, goal[2]/block_size]
+      start_grid_cell = [start_end_pos[0]/block_size, start_end_pos[1]/block_size, start_end_pos[2]/block_size]
+
+      
       start_g = 0.0
-      start_h = np.linalg.norm(start_end_pos - goal)
+      start_h = np.linalg.norm(np.array(start_grid_cell) - np.array(goal_grid_cell))
 
       Start_node = Node(start_end_pos, q0, start_g, start_h)
       toSearch = PriorityQueue()
       toSearch.put((Start_node.total_cost ,Start_node))
 
-      #ouput: q_list(list of iterative q values)
-      q_list = []
-      # strat: similar to RRT solver. Find min path of tip of robot through environment, checking for colisions at each step. 
 
+      goal_node = A_star(toSearch, goal_grid_cell, obs_pnts, arm, grid_size)
+
+      q_list = []
+      while goal_node is not None:
+            q_list.append(goal_node.q)
+            goal_node = goal_node.prev
+
+      q_list.reverse()
 
       return q_list
+
+def A_star(toSearch, goal, obs_points, arm, grid_size):
+      proccessed = []
+
+      while not toSearch.empty():
+            current = toSearch.get()[1]
+            # print("loc: ", current.loc)
+            # print("proccessed: ", proccessed)
+
+            if current.loc not in proccessed:
+                  if current.loc[0] == goal[0] and current.loc[1] == goal[1] and current.loc[2] == goal[2]:
+                        return current
+                  
+                  proccessed.append([current.loc[0], current.loc[1], current.loc[2]])
+                  
+                  walkable_points = find_walkable(current.loc, current.q, grid_size, obs_points, arm)
+
+                  for w in walkable_points:
+                        h = np.linalg.norm(np.array(goal) - np.array(w))
+                        q = arm.ik_position([w[0]*block_size, w[1]*block_size, w[2]*block_size], current.q, ik_type, K=K)
+                        newNode = Node(w, q, current.g + 1, h)
+                        newNode.prev = current
+                        toSearch.put((newNode.total_cost, newNode))
 
 if __name__ == "__main__":
       from visualization import VizScene # this is the newest visualization file updated on Oct 12
@@ -128,7 +204,7 @@ if __name__ == "__main__":
             [0, 0, 4, 0]]
       arm = kin.SerialArm(dh)
 
-      print("arm end location", arm.fk([0, np.pi/2, np.pi/2], arm.n)[0:3,3])
+      print("arm end location", arm.fk([0, 0,0], arm.n)[0:3,3])
 
       #3D arm
       # q_0 = [0, 0, 0, 0]
@@ -137,6 +213,8 @@ if __name__ == "__main__":
       #       [0, 4.031, 0, np.pi/2.0],
       #       [np.pi/6.0, 0, 2, np.pi/2.0]]
       # arm = kin.SerialArm(dh)
+
+      q_ik_slns = get_astar_path(q_0, [(obst_position, obst_rad)], (24,24), [0,4,0], arm)
 
       # depending on how you store q_ik_slns inside your function, you may need to change this for loop
       # definition. However if you store q as I've done above, this should work directly.
