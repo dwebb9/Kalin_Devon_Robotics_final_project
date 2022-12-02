@@ -80,7 +80,7 @@ class ObstFields2D:
 def target_pot_field(kp, x, xd, kv, xdot):
     return -kp * (x - xd) - kv * xdot
 
-def run_2d(arm: kin.SerialArm, obst: ObstFields2D, target):
+def run_2d(arm: kin.SerialArm, obst: ObstFields2D, target, max_iter=1000):
     q = np.zeros(arm.n)
     qs = [q]
     cur_pos = arm.fk(q)[:2, 3]
@@ -106,8 +106,9 @@ def run_2d(arm: kin.SerialArm, obst: ObstFields2D, target):
         prev_pos = cur_pos.copy()
         cur_pos = arm.fk(q)[:2, 3]
         count += 1
-        if count >= 500:
+        if max_iter is not None and count >= max_iter:
             break
+    # Return list of joint angles
     return np.array(qs)
     
 if __name__ == "__main__":
