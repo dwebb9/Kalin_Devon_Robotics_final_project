@@ -192,7 +192,10 @@ class VizScene:
         self.range = 5
 
         if QApplication.instance() is None:
-            self.app = pg.QtGui.QApplication([])
+            try:
+                self.app = pg.QtGui.QApplication([])
+            except:
+                self.app = pg.QtWidgets.QApplication([])
         else:
             self.app = QApplication.instance()
         self.window = gl.GLViewWidget()
@@ -464,7 +467,10 @@ class VizScene:
 class ArmPlayer:
     def __init__(self, arm):
         if QApplication.instance() is None:
-            self.app = pg.QtGui.QApplication([])
+            try:
+                self.app = pg.QtGui.QApplication([])
+            except:
+                self.app = pg.QtWidgets.QApplication([])
         else:
             self.app = QApplication.instance()
         self.window = QMainWindow()
