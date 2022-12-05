@@ -308,6 +308,7 @@ class SerialArm:
             status_msg: A string that may be useful to understanding why it failed. 
         """
         # Fill in q if none given, and convert to numpy array 
+        # print("q0: ", q0)
         if isinstance(q0, np.ndarray):
             q = q0
         elif q0 == None:
@@ -347,7 +348,9 @@ class SerialArm:
 
         # for example:
         def get_error(q):
+            # print("q: ", q)
             T = self.fk(q, [0,self.n], tip=True)
+            # print("T: ", T)
             cur_position = T[0:3,3]
             e = target - cur_position
             return e
