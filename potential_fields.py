@@ -1,7 +1,7 @@
 import numpy as np
 import kinematics as kin
 
-class ObstFields2D:
+class ObstFields:
     def __init__(self, obstacles, eta, rho0) -> None:
         '''Class initialization
         
@@ -57,6 +57,8 @@ class ObstFields2D:
         w = obst[:3] - pt1
         # Find the projection of w onto v
         proj = np.dot(w, v) / np.dot(v, v)
+        if np.any(np.isnan(proj)):
+            proj = 0
         # If the projection is less than 0, the closest point is pt1
         if proj < 0:
             return pt1
@@ -88,7 +90,7 @@ class ObstFields2D:
 def target_pot_field(kp, x, xd, kv, xdot):
     return -kp * (x - xd) - kv * xdot
 
-def run(arm: kin.SerialArm, obst: ObstFields2D, target, max_iter=1000):
+def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
     if len(target) == 2:
         # Ensure that the target is a 3D vector (assume x and y if only two values are provided, and set z = 0)
         target = np.hstack((target, np.zeros(1)))
@@ -126,18 +128,33 @@ if __name__ == "__main__":
     import visualization as vis
     import time
     
-    dh = np.array([[0, 0, 1, 0],
-                #    [0, 0, 1, 0],
-                #    [0, 0, 1, 0],
-                #    [0, 0, 1, 0],
-                   [0, 0, 1, 0],
+    # # 2D robot arm (only moves in the XY plane)
+    # dh = np.array([[0, 0, 1, 0],
+    #             #    [0, 0, 1, 0],
+    #             #    [0, 0, 1, 0],
+    #             #    [0, 0, 1, 0],
+    #                [0, 0, 1, 0],
+    #                [0, 0, 1, 0]])
+    
+    # 3D robot arm
+    dh = np.array([[0, 1, 0, np.pi / 2],
+                   [np.pi / 2, 0, 1, -np.pi / 2],
+                   [np.pi / 2, 1, 0, np.pi / 2],
+                   [0, 0, 0, np.pi / 2],
+                   [0, -1, 0, -np.pi / 2],
+                   [np.pi / 2, 0, 0, np.pi / 2],
                    [0, 0, 1, 0]])
     
     arm = kin.SerialArm(dh)
     
-    obst = ObstFields2D(np.array([[2, 2, 0.5], [0, 2, 0.5]]), 0.01, 0.2)
+    # vis.ArmPlayer(arm)
+    # exit()
     
-    qs = run(arm, obst, np.array([0, 2.5]))
+    # obst = ObstFields2D(np.array([[2, 2, 0.5], [0, 2, 0.5]]), 0.01, 0.2)
+    obst = ObstFields(np.array([[1, 2, 2, 0.75], [-1, 1, 1.25, 0.5], [-1, 1, 2.75, 0.5], [-1, 1.5, 1, 0.5], [-3, 0.75, 2.5, 0.5], [-3, 0.75, 2, 0.5], [-3, 0.75, 1.5, 0.5]]), 0.01, 0.2)
+    
+    # qs = run(arm, obst, np.array([0, 2.5]))
+    qs = run(arm, obst, np.array([1, 2, 1]))
     print(len(qs))
     
     v = vis.VizScene()
