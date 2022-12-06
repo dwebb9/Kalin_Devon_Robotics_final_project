@@ -35,13 +35,13 @@ def find_walkable(current, currentq, grid_size, obs_points, arm):
       #       walk.append([current[0], current[1], current[2] + 1])
       # if current[2] > zmin:
       #       walk.append([current[0], current[1], current[2] - 1])
-
+      out = []
       for i in walk:
             (q, ef, count, flag, message) = arm.ik_position([i[0]*block_size, i[1]*block_size, i[2]*block_size], currentq, ik_type, K=K)
             col = check_collision(q, obs_points, arm)
-            if col:
-                  walk.remove(i)
-      return walk
+            if not col:
+                  out.append(i)
+      return out
 
 def get_obs_poinst(obs_list):
       # TODO: may need to adjust to deal with obs in the negative quadrants. 
@@ -91,26 +91,26 @@ def check_collision(q, obs_points, arm, test=False):
       joint_locs.append(tip_T[0:3,3])
       if test: print("joint_locs: \n", joint_locs)
 
-      # beam_locs = []
-      # for i in range(0, len(joint_locs) - 1):
-      #       curr = joint_locs[i]
-      #       next = joint_locs[i+1]
+      beam_locs = []
+      for i in range(0, len(joint_locs) - 1):
+            curr = joint_locs[i]
+            next = joint_locs[i+1]
 
-      #       x_dist = np.abs(curr[0] - next[0])
-      #       y_dist = np.abs(curr[1] - next[1])
-      #       z_dist = np.abs(curr[2] - next[2])
+            x_dist = np.abs(curr[0] - next[0])
+            y_dist = np.abs(curr[1] - next[1])
+            z_dist = np.abs(curr[2] - next[2])
 
-      #       x = min([curr[0], next[0]]) + x_dist/2.0
-      #       y = min([curr[1], next[1]]) + y_dist/2.0
-      #       z = min([curr[2], next[2]]) + z_dist/2.0
+            x = min([curr[0], next[0]]) + x_dist/2.0
+            y = min([curr[1], next[1]]) + y_dist/2.0
+            z = min([curr[2], next[2]]) + z_dist/2.0
 
-      #       beam_locs.append([x,y,z])
+            beam_locs.append([x,y,z])
 
-      # for b in beam_locs: joint_locs.append(b)
+      for b in beam_locs: joint_locs.append(b)
       
       for j in joint_locs:
             j_grid = [j[0]/block_size, j[1]/block_size, j[2]/block_size]
-            # print(j_grid)
+            if test: print("j_grid: \n", j_grid)
             for o in obs_points:
                   if goal_reach_test(j_grid, o, buffer=0.5):
                         return True
@@ -185,6 +185,7 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
       while goal_node is not None:
             q_list.append(goal_node.q)
             print(goal_node.loc)
+            print(goal_node.q)
             # check_collision(goal_node.q, obs_pnts, arm, test=True)
             goal_node = goal_node.prev
 
@@ -195,7 +196,7 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
 
 def A_star(toSearch, goal, obs_points, arm, grid_size):
       proccessed = []
-      # print("obs points: \n", obs_points)
+      print("obs points: \n", obs_points)
 
       while not toSearch.empty():
             current = toSearch.get()[1]
@@ -233,10 +234,17 @@ if __name__ == "__main__":
       from visualization import VizScene # this is the newest visualization file updated on Oct 12
       import time
       # if your function works, this code should show the goal, the obstacle, and your robot moving towards the goal.
-      goal = [-1, 7, 0]
-      obst_position = [-1, 2, 0]
+      goal = [-6, 4, 0]
+      obst_position = [-5, 2, 0]
       obs2_pos = [-9, 2, 0]
-      obst_rad = 3
+      obs3_pos = [-3,2,0]
+      obs4_pos = [-1,2,0]
+      obs5_pos = [-1,4,0]
+      obs6_pos = [-1,6,0]
+      obs7_pos = [-1,7,0]
+      obs8_pos = [-7,-4,0]
+      obs9_pos = [-7,-6,0]
+      obst_rad = 2
 
       # if you just want to check if you have your code set up correctly, you can uncomment the next three lines and run this file
       # using either vs code or the terminal (and running "python3 midterm_2022.py"). None of the next three lines are needed
@@ -248,8 +256,15 @@ if __name__ == "__main__":
       q_ik_slns = q_ik_slns.tolist()
 
       #2D arm
-      q_0 = [np.pi, 0, 0]
+      # q_0 = [np.pi, 0, 0]
+      # dh = [[0, 0, 4, 0],
+      #       [0, 0, 4, 0],
+      #       [0, 0, 4, 0]]
+      # arm = kin.SerialArm(dh)
+
+      q_0 = [0, 0, 0, 0]
       dh = [[0, 0, 4, 0],
+            [0, 0, 4, 0],
             [0, 0, 4, 0],
             [0, 0, 4, 0]]
       arm = kin.SerialArm(dh)
@@ -263,9 +278,18 @@ if __name__ == "__main__":
       #       [0, 4.031, 0, np.pi/2.0],
       #       [np.pi/6.0, 0, 2, np.pi/2.0]]
       # arm = kin.SerialArm(dh)
-      obs_list = [(obst_position, obst_rad)]#, (obs2_pos, obst_rad)]
+      obs_list = [(obst_position, obst_rad), 
+                  (obs2_pos, obst_rad),
+                  (obs3_pos, obst_rad),
+                  (obs4_pos, obst_rad),
+                  (obs5_pos, obst_rad),
+                  (obs6_pos, obst_rad),
+                  (obs7_pos, obst_rad)]
 
-      q_ik_slns = get_astar_path(q_0, obs_list, (24,24), goal, arm)
+      # obs_list = []
+      q_ik_slns = get_astar_path(q_0, obs_list, (40,40), goal, arm)
+
+      
 
       # depending on how you store q_ik_slns inside your function, you may need to change this for loop
       # definition. However if you store q as I've done above, this should work directly.
@@ -273,8 +297,9 @@ if __name__ == "__main__":
 
       viz.add_arm(arm, joint_colors=[np.array([0.95, 0.13, 0.13, 1])]*arm.n)
       viz.add_marker(goal, size=20)
-      viz.add_obstacle(obst_position, rad=obst_rad, square=True)
-      viz.add_obstacle(obs2_pos, rad=obst_rad, square=True)
+      for o in obs_list:
+            viz.add_obstacle(o[0], rad=o[1], square=True)
+      # viz.add_obstacle(obs2_pos, rad=obst_rad, square=True)
 
       # viz.update(qs=[np.pi, -np.pi/2, -np.pi/2])
       viz.update(qs=[q_0])
