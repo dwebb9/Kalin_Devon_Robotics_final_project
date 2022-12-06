@@ -13,31 +13,35 @@ K = 0.4*np.eye(3,3)
 # create test evn to verify A_star with
 
 def find_walkable(current, currentq, grid_size, obs_points, arm):
+      # print("currentq: ", currentq)
       walk = []
 
       xmin = -grid_size[0]/2
       xmax = grid_size[0]/2
       ymin = -grid_size[1]/2
       ymax = grid_size[1]/2
+      # zmax = grid_size[2]/2
+      # zmin = -grid_size[2]/2
 
       if current[0] < xmax - 1:
-            walk.append([current[0] + 1, current[1], 0])
+            walk.append([current[0] + 1, current[1], current[2]])
       if current[0] > xmin:
-            walk.append([current[0] - 1, current[1], 0])
+            walk.append([current[0] - 1, current[1], current[2]])
       if current[1] < ymax:
-            walk.append([current[0], current[1] + 1, 0])
+            walk.append([current[0], current[1] + 1, current[2]])
       if current[1] > ymin:
-            walk.append([current[0], current[1] - 1, 0])
-
+            walk.append([current[0], current[1] - 1, current[2]])
+      # if current[2] < zmax:
+      #       walk.append([current[0], current[1], current[2] + 1])
+      # if current[2] > zmin:
+      #       walk.append([current[0], current[1], current[2] - 1])
+      out = []
       for i in walk:
-            if i in obs_points:
-                  walk.remove(i)
-            else:
-                  (q, ef, count, flag, message) = arm.ik_position([i[0]*block_size, i[1]*block_size, i[2]*block_size], currentq, ik_type, K=K)
-                  col = check_collision(q, obs_points, arm)
-                  if col:
-                        walk.remove(i)
-      return walk
+            (q, ef, count, flag, message) = arm.ik_position([i[0]*block_size, i[1]*block_size, i[2]*block_size], currentq, ik_type, K=K)
+            col = check_collision(q, obs_points, arm)
+            if not col:
+                  out.append(i)
+      return out
 
 def get_obs_poinst(obs_list):
       # TODO: may need to adjust to deal with obs in the negative quadrants. 
@@ -69,20 +73,47 @@ class Node():
       def __eq__(self, other):
             return (self.loc[0], self.loc[1], self.loc[2]) == (other.loc[0], other.loc[1], other.loc[2])
 
-def check_collision(q, obs_points, arm):
+def goal_reach_test(current, goal, buffer=0.5):
+      if current[0] <= (goal[0] + buffer) and current[0] >= (goal[0] - buffer) and current[1] <= (goal[1] + buffer) and current[1] >= (goal[1] - buffer) and current[2] <= (goal[2] + buffer) and current[2] >= (goal[2] - buffer):
+            return True
+      else:
+            return False
+
+
+def check_collision(q, obs_points, arm, test=False):
       joint_locs = []
       # NOTE: CHANGE 0 TO 3 FOR 3D
       for i in range(0, arm.n+1):
             T = arm.fk(q,i)
             joint_locs.append(T[0:3,3])
 
-      # print("joints locs \n", joint_locs)
-      # print("obs points: \n", obs_points)
+      tip_T = arm.fk(q, arm.n, tip=True)
+      joint_locs.append(tip_T[0:3,3])
+      if test: print("joint_locs: \n", joint_locs)
+
+      beam_locs = []
+      for i in range(0, len(joint_locs) - 1):
+            curr = joint_locs[i]
+            next = joint_locs[i+1]
+
+            x_dist = np.abs(curr[0] - next[0])
+            y_dist = np.abs(curr[1] - next[1])
+            z_dist = np.abs(curr[2] - next[2])
+
+            x = min([curr[0], next[0]]) + x_dist/2.0
+            y = min([curr[1], next[1]]) + y_dist/2.0
+            z = min([curr[2], next[2]]) + z_dist/2.0
+
+            beam_locs.append([x,y,z])
+
+      for b in beam_locs: joint_locs.append(b)
+      
       for j in joint_locs:
             j_grid = [j[0]/block_size, j[1]/block_size, j[2]/block_size]
-            # print(j_grid)
-            if j_grid in obs_points:
-                  return True
+            if test: print("j_grid: \n", j_grid)
+            for o in obs_points:
+                  if goal_reach_test(j_grid, o, buffer=0.5):
+                        return True
       return False
 
 # EXAMPLE A* CODE:
@@ -137,7 +168,8 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
       goal_grid_cell = [goal[0]/block_size, goal[1]/block_size, goal[2]/block_size]
       start_grid_cell = [start_end_pos[0]/block_size, start_end_pos[1]/block_size, start_end_pos[2]/block_size]
 
-      
+      # print("goal grid cell: ", goal_grid_cell)
+
       start_g = 0.0
       start_h = np.linalg.norm(np.array(start_grid_cell) - np.array(goal_grid_cell))
 
@@ -149,24 +181,31 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
       goal_node = A_star(toSearch, goal_grid_cell, obs_pnts, arm, grid_size)
 
       q_list = []
+      print("found path: ")
       while goal_node is not None:
             q_list.append(goal_node.q)
+            print(goal_node.loc)
+            print(goal_node.q)
+            # check_collision(goal_node.q, obs_pnts, arm, test=True)
             goal_node = goal_node.prev
 
       q_list.reverse()
 
       return q_list
 
+
 def A_star(toSearch, goal, obs_points, arm, grid_size):
       proccessed = []
+      print("obs points: \n", obs_points)
 
       while not toSearch.empty():
             current = toSearch.get()[1]
             # print("loc: ", current.loc)
-            # print("proccessed: ", proccessed)
+            # print("proccessed: ", proccessed) 
 
+            # print(current.loc)
             if current.loc not in proccessed:
-                  if current.loc[0] == goal[0] and current.loc[1] == goal[1] and current.loc[2] == goal[2]:
+                  if goal_reach_test(current.loc, goal):
                         return current
                   
                   proccessed.append([current.loc[0], current.loc[1], current.loc[2]])
@@ -175,18 +214,37 @@ def A_star(toSearch, goal, obs_points, arm, grid_size):
 
                   for w in walkable_points:
                         h = np.linalg.norm(np.array(goal) - np.array(w))
-                        q = arm.ik_position([w[0]*block_size, w[1]*block_size, w[2]*block_size], current.q, ik_type, K=K)
+                        (q, ef, count, flag, message) = arm.ik_position([w[0]*block_size, w[1]*block_size, w[2]*block_size], current.q, ik_type, K=K)
                         newNode = Node(w, q, current.g + 1, h)
                         newNode.prev = current
                         toSearch.put((newNode.total_cost, newNode))
+
+                  if not toSearch.qsize() % 100:
+                        print(toSearch.qsize())
+      
+      # for p in proccessed:
+      #       if int(p[0]) == 0:
+      #             if int(p[1]) == 4:
+      #                   print("p: ", p)
+
+      print("A Start failed to find path")
+      return current
 
 if __name__ == "__main__":
       from visualization import VizScene # this is the newest visualization file updated on Oct 12
       import time
       # if your function works, this code should show the goal, the obstacle, and your robot moving towards the goal.
-      goal = [0, 4, 0]
-      obst_position = [0, 1, 0]
-      obst_rad = 2.5
+      goal = [-6, 4, 0]
+      obst_position = [-5, 2, 0]
+      obs2_pos = [-9, 2, 0]
+      obs3_pos = [-3,2,0]
+      obs4_pos = [-1,2,0]
+      obs5_pos = [-1,4,0]
+      obs6_pos = [-1,6,0]
+      obs7_pos = [-1,7,0]
+      obs8_pos = [-7,-4,0]
+      obs9_pos = [-7,-6,0]
+      obst_rad = 2
 
       # if you just want to check if you have your code set up correctly, you can uncomment the next three lines and run this file
       # using either vs code or the terminal (and running "python3 midterm_2022.py"). None of the next three lines are needed
@@ -198,13 +256,20 @@ if __name__ == "__main__":
       q_ik_slns = q_ik_slns.tolist()
 
       #2D arm
-      q_0 = [0, 0, 0]
+      # q_0 = [np.pi, 0, 0]
+      # dh = [[0, 0, 4, 0],
+      #       [0, 0, 4, 0],
+      #       [0, 0, 4, 0]]
+      # arm = kin.SerialArm(dh)
+
+      q_0 = [-np.pi/2, 0, -np.pi/2, 0]
       dh = [[0, 0, 4, 0],
+            [0, 0, 4, 0],
             [0, 0, 4, 0],
             [0, 0, 4, 0]]
       arm = kin.SerialArm(dh)
 
-      print("arm end location", arm.fk([0, 0,0], arm.n)[0:3,3])
+      # print("arm end location", arm.fk([0, 0,0], arm.n)[0:3,3])
 
       #3D arm
       # q_0 = [0, 0, 0, 0]
@@ -213,8 +278,18 @@ if __name__ == "__main__":
       #       [0, 4.031, 0, np.pi/2.0],
       #       [np.pi/6.0, 0, 2, np.pi/2.0]]
       # arm = kin.SerialArm(dh)
+      obs_list = [(obst_position, obst_rad), 
+                  (obs2_pos, obst_rad),
+                  (obs3_pos, obst_rad),
+                  (obs4_pos, obst_rad),
+                  (obs5_pos, obst_rad),
+                  (obs6_pos, obst_rad),
+                  (obs7_pos, obst_rad)]
 
-      q_ik_slns = get_astar_path(q_0, [(obst_position, obst_rad)], (24,24), [0,4,0], arm)
+      # obs_list = []
+      q_ik_slns = get_astar_path(q_0, obs_list, (40,40), goal, arm)
+
+      
 
       # depending on how you store q_ik_slns inside your function, you may need to change this for loop
       # definition. However if you store q as I've done above, this should work directly.
@@ -222,15 +297,18 @@ if __name__ == "__main__":
 
       viz.add_arm(arm, joint_colors=[np.array([0.95, 0.13, 0.13, 1])]*arm.n)
       viz.add_marker(goal, size=20)
-      viz.add_obstacle(obst_position, rad=obst_rad, square=True)
+      for o in obs_list:
+            viz.add_obstacle(o[0], rad=o[1], square=True)
+      # viz.add_obstacle(obs2_pos, rad=obst_rad, square=True)
 
-      viz.update(qs=[0, np.pi/2, np.pi/2])
+      # viz.update(qs=[np.pi, -np.pi/2, -np.pi/2])
+      viz.update(qs=[q_0])
 
       # viz.hold()
-      # for q in q_ik_slns:
-      #       viz.update(qs=[q])
+      for q in q_ik_slns:
+            viz.update(qs=[q])
 
-      #       # if your step in q is very small, you can shrink this time, or remove it completely to speed up your animation
-      #       time.sleep(0.1)
-      #       time.sleep(0.05)
+            # if your step in q is very small, you can shrink this time, or remove it completely to speed up your animation
+            time.sleep(0.5)
+            # time.sleep(0.05)
       viz.hold()
