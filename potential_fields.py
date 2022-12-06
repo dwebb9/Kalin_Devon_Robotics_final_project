@@ -100,6 +100,7 @@ def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
     prev_pos = cur_pos.copy()
     init_dist = obst._dist(cur_pos[0], cur_pos[1], cur_pos[2], target[0], target[1], target[2])
     count = 0
+    total_dist = 0
     while not np.isclose(cur_pos, target, rtol=1e-1).all():
         # Calculate the target potential field
         pos_dot = cur_pos - prev_pos
@@ -118,11 +119,13 @@ def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
         # Calculate the new end effector position
         prev_pos = cur_pos.copy()
         cur_pos = arm.fk(q)[:3, 3]
+        # Add on the distance traveled
+        total_dist += obst._dist(*cur_pos, *prev_pos)
         count += 1
         if max_iter is not None and count >= max_iter:
             break
-    # Return list of joint angles
-    return np.array(qs)
+    # Return list of joint angles, and the total distance travelled
+    return np.array(qs), total_dist
     
 if __name__ == "__main__":
     import visualization as vis
@@ -151,20 +154,22 @@ if __name__ == "__main__":
     # exit()
     
     # obst = ObstFields2D(np.array([[2, 2, 0.5], [0, 2, 0.5]]), 0.01, 0.2)
-    obst = ObstFields(np.array([[1, 2, 2, 0.75], [-1, 1, 1.25, 0.5], [-1, 1, 2.75, 0.5], [-1, 1.5, 1, 0.5], [-3, 0.75, 2.5, 0.5], [-3, 0.75, 2, 0.5], [-3, 0.75, 1.5, 0.5]]), 0.01, 0.2)
+    obst = ObstFields(np.array([[1, -2, 2, 0.75], [-1, -1, 1.25, 0.5], [-1, -1, 2.75, 0.5], [-1, -1.5, 1, 0.5], [-3, -0.75, 2.5, 0.5], [-3, -0.75, 2, 0.5], [-3, -0.75, 1.5, 0.5]]), 0.01, 0.2)
     
     # qs = run(arm, obst, np.array([0, 2.5]))
-    qs = run(arm, obst, np.array([1, 2, 1]))
+    qs, end_dist = run(arm, obst, np.array([1, -2, 1]))
+    print(end_dist)
     print(len(qs))
     
     v = vis.VizScene()
+    v.window.setCameraPosition(distance=4, elevation=10, azimuth=-90)
     v.add_arm(arm)
     for i in range(obst.num_obstacles):
         obst_pos = np.zeros(3)
         obst_pos = obst.obstacles[i, :3]
         obst_rad = obst.obstacles[i, 3]
         v.add_obstacle(obst_pos, rad=obst_rad)
-    
+            
     for q in qs:
         v.update(q)
         time.sleep(1 / 60)
