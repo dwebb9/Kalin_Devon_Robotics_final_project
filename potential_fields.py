@@ -101,10 +101,11 @@ def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
     init_dist = obst._dist(cur_pos[0], cur_pos[1], cur_pos[2], target[0], target[1], target[2])
     count = 0
     total_dist = 0
-    while not np.isclose(cur_pos, target, rtol=1e-1).all():
+    cur_dist = obst._dist(*cur_pos, *target)
+    dists = [cur_dist]
+    while cur_dist > 0.1:
         # Calculate the target potential field
         pos_dot = cur_pos - prev_pos
-        cur_dist = obst._dist(cur_pos[0], cur_pos[1], cur_pos[2], target[0], target[1], target[2])
         kp = max(0.2, 1 - cur_dist / init_dist)
         target_force = target_pot_field(kp, cur_pos, target, 1, pos_dot)
         # Calculate the obstacle potential field
@@ -122,6 +123,11 @@ def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
         # Add on the distance traveled
         total_dist += obst._dist(*cur_pos, *prev_pos)
         count += 1
+        prev_dist = cur_dist.copy()
+        cur_dist = obst._dist(*cur_pos, *target)
+        dists.append(cur_dist)
+        if cur_dist < 0.3 and (prev_dist < cur_dist or np.abs(cur_dist - prev_dist) < 1e-4):
+            break
         if max_iter is not None and count >= max_iter:
             break
     # Return list of joint angles, and the total distance travelled
