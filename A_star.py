@@ -188,7 +188,7 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm, two_D=False):
       dist = goal_node.g
       while goal_node is not None:
             q_list.append(goal_node.q)
-            print("loc: ", goal_node.loc)
+            # print("loc: ", goal_node.loc)
             # print("h: ", goal_node.h)
             # print("g: ", goal_node.g)
             # print("total cost: ", goal_node.total_cost)
@@ -198,7 +198,7 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm, two_D=False):
 
       q_list.reverse()
 
-      return q_list, dist
+      return q_list, dist*block_size
 
 
 def A_star(toSearch, goal, obs_points, arm, grid_size, two_d):
@@ -234,12 +234,12 @@ def A_star(toSearch, goal, obs_points, arm, grid_size, two_d):
                         toSearch.put((newNode.total_cost, newNode))
                         if h < min_h:
                               min_h = h
-                              print("min h: ", min_h)
+                              # print("min h: ", min_h)
                               if goal_reach_test(newNode.loc, goal):
                                     return newNode
 
-                  if not toSearch.qsize() % 100:
-                        print(toSearch.qsize())
+                  # if not toSearch.qsize() % 100:
+                  #       print(toSearch.qsize())
       
       # for p in proccessed:
       #       if int(p[0]) == 0:
@@ -438,6 +438,9 @@ if __name__ == "__main__":
       viz.update(qs=[q_0])
 
       # viz.hold()
+      viz.update(qs=[q_ik_slns[0]])
+      time.sleep(15)
+
       for q in q_ik_slns:
             viz.update(qs=[q])
 
