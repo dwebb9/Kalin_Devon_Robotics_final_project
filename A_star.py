@@ -183,20 +183,21 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
       goal_node = A_star(toSearch, goal_grid_cell, obs_pnts, arm, grid_size)
 
       q_list = []
-      print("found path: ")
+      # print("found path: ")
+      dist = goal_node.g
       while goal_node is not None:
             q_list.append(goal_node.q)
-            print("loc: ", goal_node.loc)
-            print("h: ", goal_node.h)
-            print("g: ", goal_node.g)
-            print("total cost: ", goal_node.total_cost)
+            # print("loc: ", goal_node.loc)
+            # print("h: ", goal_node.h)
+            # print("g: ", goal_node.g)
+            # print("total cost: ", goal_node.total_cost)
             # print(goal_node.q)
             # check_collision(goal_node.q, obs_pnts, arm, test=True)
             goal_node = goal_node.prev
 
       q_list.reverse()
 
-      return q_list
+      return q_list, dist
 
 
 def A_star(toSearch, goal, obs_points, arm, grid_size):
@@ -226,12 +227,12 @@ def A_star(toSearch, goal, obs_points, arm, grid_size):
                         toSearch.put((newNode.total_cost, newNode))
                         if h < min_h:
                               min_h = h
-                              print("min h: ", min_h)
+                              # print("min h: ", min_h)
                               if goal_reach_test(newNode.loc, goal):
                                     return newNode
 
-                  if not toSearch.qsize() % 100:
-                        print(toSearch.qsize())
+                  # if not toSearch.qsize() % 100:
+                  #       print(toSearch.qsize())
       
       # for p in proccessed:
       #       if int(p[0]) == 0:
@@ -307,7 +308,7 @@ if __name__ == "__main__":
 
       #Kalin's rob
       q_0 = np.array([0,0,0,0,0,0,0])
-      grid_size = (40,40,40)
+      grid_size = (15,15,15)
       goal = [1,2,1]
       dh = np.array([[0, 1, 0, np.pi / 2],
                         [np.pi / 2, 0, 1, -np.pi / 2],
@@ -318,9 +319,7 @@ if __name__ == "__main__":
                         [0, 0, 1, 0]])
       
       arm = kin.SerialArm(dh)
-
-      obs_list =   [-3, 0.75, 2.5, 0.5], [-3, 0.75, 2, 0.5], [-3, 0.75, 1.5, 0.5]
-      
+            
       obs1_rad = 0.75 * 2
       obs1_pos = [0.25, 1.25 ,1.25]
 
@@ -350,9 +349,14 @@ if __name__ == "__main__":
                   (obs6_pos, obs6_rad),
                   (obs7_pos, obs7_rad)]
 
-      q_ik_slns = get_astar_path(q_0, obs_list, grid_size, goal, arm)
+      q_ik_slns, dist = get_astar_path(q_0, obs_list, grid_size, goal, arm)
 
       print("arm end location", arm.fk(q_0, arm.n)[0:3,3])
+
+      path_points = []
+      
+      for q in q_ik_slns:
+            path_points.append( arm.fk(q, arm.n)[0:3,3])
 
       # depending on how you store q_ik_slns inside your function, you may need to change this for loop
       # definition. However if you store q as I've done above, this should work directly.
@@ -360,6 +364,10 @@ if __name__ == "__main__":
 
       viz.add_arm(arm, joint_colors=[np.array([0.95, 0.13, 0.13, 1])]*arm.n)
       viz.add_marker(goal, size=20)
+
+      red = [0.7, 0, 0, 1]
+      for p in path_points:
+            viz.add_marker(p, color=red, size = 10)
       for o in obs_list:
             viz.add_obstacle(o[0], rad=o[1], square=True)
       # viz.add_obstacle(obs2_pos, rad=obst_rad, square=True)
