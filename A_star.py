@@ -2,15 +2,9 @@ import kinematics as kin  #this is your kinematics file that you've been develop
 import numpy as np
 from queue import PriorityQueue
 
-#TODO: 
-# Find path with square obs
-# define and measure metrics for comparing path planners. 
-
 block_size = 0.5
 ik_type = "p_inv"
 K = 0.4*np.eye(3,3)
-
-# create test evn to verify A_star with
 
 def find_walkable(current, currentq, grid_size, obs_points, arm, two_d):
       # print("currentq: ", currentq)
@@ -45,7 +39,6 @@ def find_walkable(current, currentq, grid_size, obs_points, arm, two_d):
       return out
 
 def get_obs_poinst(obs_list):
-      # TODO: may need to adjust to deal with obs in the negative quadrants. 
       obs_pnts = []
 
       for o in obs_list:
@@ -84,7 +77,6 @@ def goal_reach_test(current, goal, buffer=0.75):
 
 def check_collision(q, obs_points, arm, test=False):
       joint_locs = []
-      # NOTE: CHANGE 0 TO 3 FOR 3D
       for i in range(0, arm.n+1):
             T = arm.fk(q,i)
             joint_locs.append(T[0:3,3])
@@ -117,48 +109,6 @@ def check_collision(q, obs_points, arm, test=False):
                   if goal_reach_test(j_grid, o, buffer=0.5):
                         return True
       return False
-
-# EXAMPLE A* CODE:
- #Find best path
-# t = 0
-# Start_node = Node(agent_start, 0, 0)
-# toSearch = PriorityQueue()
-# toSearch.put((Start_node.total_cost ,Start_node))
-
-# processed = dict()
-# last = Node([0,0],0, 0)
-
-# while not toSearch.empty():
-#       temp = toSearch.get()
-#       current = temp[1]
-
-#       if current.time == number_steps - 1:
-#       last = current
-#       break
-
-#       if not contain_test(processed, current):
-#       processed[current] = True
-#       walkable_points = find_walkable(current, grid_size, grid_obs_points)
-#       for i in walkable_points:
-#             grid_i = [int(i[0]), int(i[1])]
-#             newNode = Node(np.array([i[0]*block_size, i[1]*block_size]), current.time + 1, current.total_cost + grid_cost[grid_i[0]][grid_i[1]][current.time + 1] + heuristic[current.time + 1])
-#             newNode.prev = current
-#             newNode.current_cost = grid_cost[grid_i[0]][grid_i[1]][current.time + 1]
-#             toSearch.put((newNode.total_cost, newNode))
-            
-#       if t < current.time + 1:
-#       t = current.time + 1
-#       # print("last time: ", t)
-#       toc = time.perf_counter()
-#       # print("current path planning time: ", toc - tic)
-
-# final_path = []
-# current = last
-# sum_cost = 0
-# while current is not None:
-#       sum_cost += current.current_cost
-#       final_path.append(current.loc)
-#       current = current.prev
 
 
 def get_astar_path(q0, obs_list, grid_size, goal, arm, two_D=False):
