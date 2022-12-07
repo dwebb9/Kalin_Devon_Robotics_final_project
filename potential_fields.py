@@ -98,11 +98,10 @@ def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
     qs = [q]
     cur_pos = arm.fk(q)[:3, 3]
     prev_pos = cur_pos.copy()
-    init_dist = obst._dist(cur_pos[0], cur_pos[1], cur_pos[2], target[0], target[1], target[2])
+    init_dist = obst._dist(*cur_pos, *target)
     count = 0
     total_dist = 0
     cur_dist = obst._dist(*cur_pos, *target)
-    dists = [cur_dist]
     while cur_dist > 0.1:
         # Calculate the target potential field
         pos_dot = cur_pos - prev_pos
@@ -125,9 +124,10 @@ def run(arm: kin.SerialArm, obst: ObstFields, target, max_iter=1000):
         count += 1
         prev_dist = cur_dist.copy()
         cur_dist = obst._dist(*cur_pos, *target)
-        dists.append(cur_dist)
+        # Terminate if within reasonable distance and obstacle is in the way, or the rate of change in distance is extremely small
         if cur_dist < 0.3 and (prev_dist < cur_dist or np.abs(cur_dist - prev_dist) < 1e-4):
             break
+        # Terminate if max iterations is reached
         if max_iter is not None and count >= max_iter:
             break
     # Return list of joint angles, and the total distance travelled
@@ -160,7 +160,13 @@ if __name__ == "__main__":
     # exit()
     
     # obst = ObstFields2D(np.array([[2, 2, 0.5], [0, 2, 0.5]]), 0.01, 0.2)
-    obst = ObstFields(np.array([[1, -2, 2, 0.75], [-1, -1, 1.25, 0.5], [-1, -1, 2.75, 0.5], [-1, -1.5, 1, 0.5], [-3, -0.75, 2.5, 0.5], [-3, -0.75, 2, 0.5], [-3, -0.75, 1.5, 0.5]]), 0.01, 0.2)
+    obst = ObstFields(np.array([[1, -2, 2, 0.75], 
+                                [-1, -1, 1.25, 0.5], 
+                                [-1, -1, 2.75, 0.5], 
+                                [-1, -1.5, 1, 0.5], 
+                                [-3, -0.75, 2.5, 0.5], 
+                                [-3, -0.75, 2, 0.5], 
+                                [-3, -0.75, 1.5, 0.5]]), 0.01, 0.2)
     
     # qs = run(arm, obst, np.array([0, 2.5]))
     qs, end_dist = run(arm, obst, np.array([1, -2, 1]))
