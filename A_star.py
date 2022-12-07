@@ -12,7 +12,7 @@ K = 0.4*np.eye(3,3)
 
 # create test evn to verify A_star with
 
-def find_walkable(current, currentq, grid_size, obs_points, arm):
+def find_walkable(current, currentq, grid_size, obs_points, arm, two_d):
       # print("currentq: ", currentq)
       walk = []
 
@@ -31,10 +31,11 @@ def find_walkable(current, currentq, grid_size, obs_points, arm):
             walk.append([current[0], current[1] + 1, current[2]])
       if current[1] > ymin:
             walk.append([current[0], current[1] - 1, current[2]])
-      if current[2] < zmax:
-            walk.append([current[0], current[1], current[2] + 1])
-      if current[2] > zmin:
-            walk.append([current[0], current[1], current[2] - 1])
+      if not two_d:
+            if current[2] < zmax:
+                  walk.append([current[0], current[1], current[2] + 1])
+            if current[2] > zmin:
+                  walk.append([current[0], current[1], current[2] - 1])
       out = []
       for i in walk:
             (q, ef, count, flag, message) = arm.ik_position([i[0]*block_size, i[1]*block_size, i[2]*block_size], currentq, ik_type, K=K)
@@ -72,7 +73,7 @@ class Node():
             return hash((self.loc[0], self.loc[1], self.loc[2]))
 
       def __eq__(self, other):
-            return (self.loc[0], self.loc[1], self.loc[2]) == (other.loc[0], other.loc[1], other.loc[2])
+            return (self.loc[0], self.loc[1], self.loc[2]) == (other.loc[0], other.loc[1], other.loc[2]) 
 
 def goal_reach_test(current, goal, buffer=0.75):
       if current[0] <= (goal[0] + buffer) and current[0] >= (goal[0] - buffer) and current[1] <= (goal[1] + buffer) and current[1] >= (goal[1] - buffer) and current[2] <= (goal[2] + buffer) and current[2] >= (goal[2] - buffer):
@@ -160,7 +161,7 @@ def check_collision(q, obs_points, arm, test=False):
 #       current = current.prev
 
 
-def get_astar_path(q0, obs_list, grid_size, goal, arm):
+def get_astar_path(q0, obs_list, grid_size, goal, arm, two_D=False):
       #inputs: q0, obs_list(list of obstacles), grid_size, goal
       #ouput: q_list(list of iterative q values)
 
@@ -175,19 +176,19 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
       start_h = np.abs(start_grid_cell[0] - goal_grid_cell[0]) + np.abs(start_grid_cell[1] - goal_grid_cell[1]) + np.abs(start_grid_cell[2] - goal_grid_cell[2]) 
       # start_h = np.linalg.norm(np.array(start_grid_cell) - np.array(goal_grid_cell))
 
-      Start_node = Node(start_end_pos, q0, start_g, start_h)
+      Start_node = Node(start_grid_cell, q0, start_g, start_h)
       toSearch = PriorityQueue()
       toSearch.put((Start_node.total_cost ,Start_node))
 
 
-      goal_node = A_star(toSearch, goal_grid_cell, obs_pnts, arm, grid_size)
+      goal_node = A_star(toSearch, goal_grid_cell, obs_pnts, arm, grid_size, two_D)
 
       q_list = []
       # print("found path: ")
       dist = goal_node.g
       while goal_node is not None:
             q_list.append(goal_node.q)
-            # print("loc: ", goal_node.loc)
+            print("loc: ", goal_node.loc)
             # print("h: ", goal_node.h)
             # print("g: ", goal_node.g)
             # print("total cost: ", goal_node.total_cost)
@@ -200,7 +201,7 @@ def get_astar_path(q0, obs_list, grid_size, goal, arm):
       return q_list, dist
 
 
-def A_star(toSearch, goal, obs_points, arm, grid_size):
+def A_star(toSearch, goal, obs_points, arm, grid_size, two_d):
       proccessed = []
       min_h = 100
       # print("obs points: \n", obs_points)
@@ -209,13 +210,19 @@ def A_star(toSearch, goal, obs_points, arm, grid_size):
             current = toSearch.get()[1]
             # print("loc: ", current.loc)
             # print("proccessed: ", proccessed) 
-
+            # print("current q: ", current.q)
             # print(current.loc)
-            if current.loc not in proccessed:
+            # if current.loc not in proccessed:
+            currq = []
+            for i in current.q:
+                  currq.append(i)
+            if currq not in proccessed:
                   
-                  proccessed.append([current.loc[0], current.loc[1], current.loc[2]])
+                  # proccessed.append([current.loc[0], current.loc[1], current.loc[2]])
                   
-                  walkable_points = find_walkable(current.loc, current.q, grid_size, obs_points, arm)
+                  proccessed.append(currq)
+                  
+                  walkable_points = find_walkable(current.loc, current.q, grid_size, obs_points, arm, two_d)
 
                   for w in walkable_points:
                         # h = np.linalg.norm(np.array(goal) - np.array(w[0]))
@@ -227,12 +234,12 @@ def A_star(toSearch, goal, obs_points, arm, grid_size):
                         toSearch.put((newNode.total_cost, newNode))
                         if h < min_h:
                               min_h = h
-                              # print("min h: ", min_h)
+                              print("min h: ", min_h)
                               if goal_reach_test(newNode.loc, goal):
                                     return newNode
 
-                  # if not toSearch.qsize() % 100:
-                  #       print(toSearch.qsize())
+                  if not toSearch.qsize() % 100:
+                        print(toSearch.qsize())
       
       # for p in proccessed:
       #       if int(p[0]) == 0:
@@ -307,9 +314,60 @@ if __name__ == "__main__":
 
 
       #Kalin's rob
-      q_0 = np.array([0,0,0,0,0,0,0])
-      grid_size = (15,15,15)
-      goal = [1,2,1]
+      # q_0 = np.array([0,0,0,0,0,0,0])
+      # grid_size = (15,15,15)
+      # goal = [1,2,1]
+      # dh = np.array([[0, 1, 0, np.pi / 2],
+      #                   [np.pi / 2, 0, 1, -np.pi / 2],
+      #                   [np.pi / 2, 1, 0, np.pi / 2],
+      #                   [0, 0, 0, np.pi / 2],
+      #                   [0, -1, 0, -np.pi / 2],
+      #                   [np.pi / 2, 0, 0, np.pi / 2],
+      #                   [0, 0, 1, 0]])
+      
+      # arm = kin.SerialArm(dh)
+            
+      # obs1_rad = 0.75 * 2
+      # obs1_pos = [0.25, 1.25 ,1.25]
+
+      # obs2_pos = [-1.5, 0.5, 0.75]
+      # obs2_rad = 0.5 * 2
+
+      # obs3_pos = [-1.5, 0.5, 2.25]
+      # obs3_rad = 0.5 * 2
+
+      # obs4_pos = [-1.5, 1, 0.5]
+      # obs4_rad = 0.5 * 2
+
+      # obs5_pos = [-3.5, 0.25, 2]
+      # obs5_rad = 0.5 * 2
+
+      # obs6_pos = [-3.5, 0.25, 1.5]
+      # obs6_rad = 0.5 * 2
+
+      # obs7_pos = [-3.5, 0.25, 1]
+      # obs7_rad = 0.5 * 2
+
+      # obs_list = [(obs1_pos, obs1_rad), 
+      #             (obs2_pos, obs2_rad),
+      #             (obs3_pos, obs3_rad),
+      #             (obs4_pos, obs4_rad),
+      #             (obs5_pos, obs5_rad),
+      #             (obs6_pos, obs6_rad),
+      #             (obs7_pos, obs7_rad)]
+
+
+      # timeing examples:
+      # dh = np.array([[0, 0, 1, 0],
+      #              [0, 0, 1, 0],
+      #              [0, 0, 1, 0]])
+      # arm = kin.SerialArm(dh)
+      # obs_list = [([1.5,1.5,0],1), ([-0.5, 1.5, 0], 1)]
+      # goal = np.array([0, 2.5, 0])
+      # q_0 = [0,0,0]
+      # grid_size = [12,12,4]
+
+
       dh = np.array([[0, 1, 0, np.pi / 2],
                         [np.pi / 2, 0, 1, -np.pi / 2],
                         [np.pi / 2, 1, 0, np.pi / 2],
@@ -317,28 +375,29 @@ if __name__ == "__main__":
                         [0, -1, 0, -np.pi / 2],
                         [np.pi / 2, 0, 0, np.pi / 2],
                         [0, 0, 1, 0]])
-      
+      q_0 = np.array([0,0,0,0,0,0,0])
+      grid_size = (15,15,15)
       arm = kin.SerialArm(dh)
-            
+      
       obs1_rad = 0.75 * 2
-      obs1_pos = [0.25, 1.25 ,1.25]
+      obs1_pos = [0.25, -2.75 ,1.25]
 
-      obs2_pos = [-1.5, 0.5, 0.75]
+      obs2_pos = [-1.5, -1.5, 0.75]
       obs2_rad = 0.5 * 2
 
-      obs3_pos = [-1.5, 0.5, 2.25]
+      obs3_pos = [-1.5, -1.5, 2.25]
       obs3_rad = 0.5 * 2
 
-      obs4_pos = [-1.5, 1, 0.5]
+      obs4_pos = [-1.5, -2, 0.5]
       obs4_rad = 0.5 * 2
 
-      obs5_pos = [-3.5, 0.25, 2]
+      obs5_pos = [-3.5, -1.75, 2]
       obs5_rad = 0.5 * 2
 
-      obs6_pos = [-3.5, 0.25, 1.5]
+      obs6_pos = [-3.5, -1.75, 1.5]
       obs6_rad = 0.5 * 2
 
-      obs7_pos = [-3.5, 0.25, 1]
+      obs7_pos = [-3.5, -1.75, 1]
       obs7_rad = 0.5 * 2
 
       obs_list = [(obs1_pos, obs1_rad), 
@@ -348,10 +407,12 @@ if __name__ == "__main__":
                   (obs5_pos, obs5_rad),
                   (obs6_pos, obs6_rad),
                   (obs7_pos, obs7_rad)]
+      goal = np.array([1, -2, 1])
 
-      q_ik_slns, dist = get_astar_path(q_0, obs_list, grid_size, goal, arm)
+      q_ik_slns, dist = get_astar_path(q_0, obs_list, grid_size, goal, arm, two_D=False)
 
-      print("arm end location", arm.fk(q_0, arm.n)[0:3,3])
+      print("q_list \n", q_ik_slns)
+      # print("arm end location", arm.fk(q_0, arm.n)[0:3,3])
 
       path_points = []
       
@@ -366,6 +427,7 @@ if __name__ == "__main__":
       viz.add_marker(goal, size=20)
 
       red = [0.7, 0, 0, 1]
+      print("path points \n", path_points)
       for p in path_points:
             viz.add_marker(p, color=red, size = 10)
       for o in obs_list:

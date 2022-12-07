@@ -31,7 +31,7 @@ def eval_2d(num_trials):
         dists_pf[i] = dist
         # Run A*
         start = time.time()
-        a_star_q_list, a_dist = get_astar_path([0,0,0], obs_list, [10,10,4], [0, 2.5, 0], arm)
+        a_star_q_list, a_dist = get_astar_path([0,0,0], obs_list, [10,10,4], [0, 2.5, 0], arm, two_D=True)
         end = time.time()
         times_as[i] = end - start
         dists_as[i] = a_dist
